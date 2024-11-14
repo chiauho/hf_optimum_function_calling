@@ -46,7 +46,7 @@ record_thread = None
 
 # Load the Whisper model and processor for transcribing
 model_id = "openai/whisper-large-v3"
-ov_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/whisper-large-v3-openvino"    # my convert model using optimum
+ov_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/hf_optimum-whisper-large-v3"    # my convert model using optimum
 
 print("Load tokenizer")
 tokenizer = AutoProcessor.from_pretrained(model_id)
