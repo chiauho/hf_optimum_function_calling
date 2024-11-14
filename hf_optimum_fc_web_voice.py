@@ -2,6 +2,7 @@
 # Optimize the models with optimum to run on openvino
 # POC of function calling, speech2text
 # There is a corresponding version running on Nvidia
+# pip install optimum[openvino,nncf]
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles

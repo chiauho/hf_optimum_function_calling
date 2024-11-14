@@ -1,3 +1,4 @@
+# pip install optimum[openvino,nncf]
 import librosa
 from transformers import AutoProcessor
 from optimum.intel import OVModelForSpeechSeq2Seq
