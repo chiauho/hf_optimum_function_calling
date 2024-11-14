@@ -123,7 +123,7 @@ For each function call return a json object with function name and arguments wit
 # end of function
 
 model_id = "meta-llama/Llama-3.2-3B-Instruct"
-OV_model_id = "hf_optimum_auto-Llama-3.2-3B-Instruct"
+OV_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/hf_optimum_auto-Llama-3.2-3B-Instruct"
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = OVModelForCausalLM.from_pretrained(OV_model_id)

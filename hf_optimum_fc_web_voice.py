@@ -46,7 +46,7 @@ record_thread = None
 
 # Load the Whisper model and processor for transcribing
 model_id = "openai/whisper-large-v3"
-ov_model_id = "whisper-large-v3-openvino"    # my convert model using optimum
+ov_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/whisper-large-v3-openvino"    # my convert model using optimum
 
 print("Load tokenizer")
 tokenizer = AutoProcessor.from_pretrained(model_id)
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     global g_model
 
     model_id = "meta-llama/Llama-3.2-3B-Instruct"
-    OV_model_id = "hf_optimum_auto-Llama-3.2-3B-Instruct"
+    OV_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/hf_optimum_auto-Llama-3.2-3B-Instruct"
     g_tokenizer = AutoTokenizer.from_pretrained(model_id)
     g_model = OVModelForCausalLM.from_pretrained(OV_model_id)
 

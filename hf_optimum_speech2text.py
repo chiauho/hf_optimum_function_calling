@@ -3,7 +3,7 @@ from transformers import AutoProcessor
 from optimum.intel import OVModelForSpeechSeq2Seq
 
 model_id = "openai/whisper-large-v3"
-ov_model_id = "whisper-large-v3-openvino"    # my convert model using optimum
+ov_model_id = "C:/Users/chiauho.ong/.cache/huggingface/hub/whisper-large-v3-openvino"    # my convert model using optimum
 
 # convert the model
 # model_id = "openai/whisper-large-v3"
