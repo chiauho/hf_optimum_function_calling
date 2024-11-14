@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafe Menu</title>
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .left-partition {
+            width: 30%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .right-partition {
+            width: 80%;
+            height: 100vh;
+            padding: 0;
+            display: flex;
+            align-content: center;
+            justify-content: center;
+            position: relative;  /* Added for absolute positioning of child elements */
+        }
+        #user-input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 5px;
+            resize: vertical;
+            height: 80px;
+            overflow-y: auto;
+        }
+        #output-text {
+            flex-grow: 1;
+            width: 100%;
+            margin-top: 10px;
+            padding: 5px;
+        }
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 0;            
+        }
+        .image-container {
+            position: relative;
+            width: 100%;  /* Adjust as needed */
+            height: 100%; /* Adjust as needed */
+        }
+        .image-wrapper img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .overlay-image {
+            position: absolute;   /* Position relative to the parent container */
+            top: 45%;             /* Use percentage for positioning */
+            left: 40%;            /* Use percentage for positioning */
+            width: 10%;           /* Use percentage for size */
+            height: auto;         /* Maintain aspect ratio */
+            z-index: 5;           /* Ensure it's above other elements */
+        }
+        textarea {
+            font-size: 16px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #right-output-text {
+            position: absolute;
+            top: 10%;   /* Adjust this percentage relative to the parent container */
+            left: 28%;  /* Adjust this percentage relative to the parent container */
+            width: 30%; /* Width relative to the parent container */
+            height: 20%; /* Height relative to the parent container */
+ /*         resize: none;
+            overflow: auto; */
+            z-index: 10;
+            border: none;
+            font-size: 1vw;  /* Use responsive font size that adjusts with screen size */
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-partition">
+        <label for="user-input">Cafeteria Menu. Type your order:</label>
+        <textarea id="user-input" maxlength="255"></textarea>
+        <div class="button-container">
+            <button id="startRecording">Start Your Order</button>
+            <button id="stopRecording" disabled>End Your Order</button>
+        </div>
+        <textarea id="output-text" readonly>Either type your order in the text box above or record your order using the "Start Order" and "Stop Order" buttons.
+You can even ask for the weather in any city or the opening stock price for a stock (you must provide the stock code)
+        </textarea>
+    </div>
+    <!-- Right partition for image and text overlay -->
+    <div class="right-partition">
+        <!-- Image container -->
+        <div class="image-wrapper" id="image-container">
+            <!-- Text that will overlay the image -->
+            <textarea id="right-output-text" readonly>Order your meal / drinks with the options as shown in the menu           
+            </textarea>
+        </div>
+    </div>
+
+    <script>
+        const userInput = document.getElementById('user-input');
+        const outputText = document.getElementById('output-text');
+        const right_outputText = document.getElementById('right-output-text');
+        const imageContainer = document.getElementById('image-container');
+        const startRecordingButton = document.getElementById('startRecording');
+        const stopRecordingButton = document.getElementById('stopRecording');
+
+        userInput.addEventListener('keyup', async (event) => {
+            if (event.key === 'Enter') {
+
+                // Clear the output text and display processing message
+                right_outputText.value = "Your query is being processed. Please wait as we are experiencing high volume of requests ....";
+
+                const wrappers = imageContainer.querySelectorAll('.image-wrapper');
+                wrappers.forEach(wrapper => wrapper.remove());
+
+                // Clear existing overlay images
+                const overlayImages = imageContainer.querySelectorAll('.overlay-image');
+                overlayImages.forEach(img => img.remove());
+
+// -------------------------- Display Vending Machine-----------------------------------------------
+                // Create a wrapper for the image
+                const wrapper = document.createElement('div');
+                wrapper.className = 'image-wrapper';
+
+                // Create an img element and set its src to your local image
+                const img = document.createElement('img');
+                img.src = 'static/vending_machine_v2.png'; // This is the path to your local image
+                img.alt = 'Vending Machine';  // Optional: Add an alt text for accessibility
+
+                // Append the img to the wrapper
+                wrapper.appendChild(img);
+
+                // Append the wrapper to the image container
+                imageContainer.appendChild(wrapper);
+// --------------------------------------------------------------------------------------------------      
+                try {
+                    const response = await fetch('/process_input', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({user_input: userInput.value})
+                    });
+                    const data = await response.json();
+                    
+                    // Update output text with the response
+                    right_outputText.value = data.output_text;
+                    
+                    // Display new images on top (overlays)
+                        data.images.forEach(imgSrc => {
+                            const overlayImg = document.createElement('img');
+                            overlayImg.src = imgSrc;
+                            overlayImg.className = 'overlay-image';  // Apply positioning CSS
+                            // No need to set inline styles for 'top' and 'left' anymore if percentages are used in CSS
+                            imageContainer.appendChild(overlayImg);  // Add image to container
+                        });
+                } catch (error) {
+                    // Clear previous images
+                    imageContainer.innerHTML = '';
+                    right_outputText.value = "An error occurred while processing your query.";
+                    console.error('Error:', error);
+                }
+
+                // Clear the input field
+                userInput.value = '';
+            }
+        });
+
+        startRecordingButton.addEventListener('click', async () => {
+            try {
+
+                const wrappers = imageContainer.querySelectorAll('.image-wrapper');
+                wrappers.forEach(wrapper => wrapper.remove());
+
+                // Clear existing overlay images
+                const overlayImages = imageContainer.querySelectorAll('.overlay-image');
+                overlayImages.forEach(img => img.remove());
+
+// -------------------------- Display Vending Machine-----------------------------------------------
+                // Create a wrapper for the image
+                const wrapper = document.createElement('div');
+                wrapper.className = 'image-wrapper';
+
+                // Create an img element and set its src to your local image
+                const img = document.createElement('img');
+                img.src = 'static/vending_machine_v2.png'; // This is the path to your local image
+                img.alt = 'Vending Machine';  // Optional: Add an alt text for accessibility
+
+                // Append the img to the wrapper
+                wrapper.appendChild(img);
+
+                // Append the wrapper to the image container
+                imageContainer.appendChild(wrapper);
+// --------------------------------------------------------------------------------------------------      
+
+                const response = await fetch('/start_recording', { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    startRecordingButton.disabled = true;
+                    stopRecordingButton.disabled = false;
+                    right_outputText.value = "Recording started...";
+                }
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                right_outputText.value = "Error starting recording.";
+            }
+        });
+
+        stopRecordingButton.addEventListener('click', async () => {
+            try {
+                right_outputText.value = "Your query is being processed. Please wait as we are experiencing high volume of requests. HeHeHe ....";
+ 
+ 
+                const response = await fetch('/stop_recording', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_input: userInput.value})
+                });
+
+                const data = await response.json();
+                right_outputText.value = data.output_text;  // Display transcription first
+
+                // Now start LLM processing
+                const llmResponse = await fetch('/process_llm', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({transcription: data.output_text})
+                });
+
+                const llmData = await llmResponse.json();
+                right_outputText.value = llmData.output_text;
+
+                // Display new images on top (overlays)
+                llmData.images.forEach(imgSrc => {
+                    const overlayImg = document.createElement('img');
+                    overlayImg.src = imgSrc;
+                    overlayImg.className = 'overlay-image';  // Apply positioning CSS
+                    // No need to set inline styles for 'top' and 'left' anymore if percentages are used in CSS
+                    imageContainer.appendChild(overlayImg);  // Add image to container
+                });
+                // Always enable the start button and disable the stop button when processing is complete
+                startRecordingButton.disabled = false;
+                stopRecordingButton.disabled = true;
+
+            } catch (error) {
+                imageContainer.innerHTML = '';  // Clear previous images
+                console.error('Error stopping recording:', error);
+                right_outputText.value = "Error stopping recording.";
+                
+                // In case of error, also reset the button states
+                startRecordingButton.disabled = false;
+                stopRecordingButton.disabled = true;
+            }
+        });
+
+        // Initial load of images
+        fetch('/get_images')
+            .then(response => response.json())
+            .then(data => {
+                data.images.forEach(imgSrc => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'image-wrapper';
+                    const img = document.createElement('img');
+                    img.src = imgSrc;
+                    wrapper.appendChild(img);
+                    imageContainer.appendChild(wrapper);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading initial images:', error);
+            });
+    </script>
+</body>
+</html>

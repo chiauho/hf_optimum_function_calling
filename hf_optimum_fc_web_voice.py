@@ -8,7 +8,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import torch    # https://pytorch.org/ to get cuda version
 from transformers import AutoTokenizer
 from optimum.intel import OVModelForCausalLM
 import re
@@ -105,7 +104,9 @@ async def stop_recording():
             input_ids = tokenizer(raw_speech, sampling_rate=RATE, return_tensors="pt")
             outputs = model.generate(**input_ids, language=LANGUAGE)
             transcription = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            return transcription
+            print(f"Transription is: {transcription}")
+            r = JSONResponse(content={"output_text": transcription.strip()})
+            return r
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error during transcription: {str(e)}")
 
@@ -151,17 +152,14 @@ async def initial_image():
     i = [i]
     r = JSONResponse(content={"output_text": "A coffee machine", "images": i})
     return r
+
+
 @app.get("/get_images")
 async def get_images():
     i = "/static/vending_machine_v2.png"
     i = [i]
     r = JSONResponse(content={"output_text": "A coffee machine", "images": i})
     return r
-
-def get_gpu_mem():
-    gpu_mem_byte = torch.cuda.get_device_properties(0).total_memory
-    gpu_mem_gb = round(gpu_mem_byte / (2**30))
-    print(f"Avail GPU memory: {gpu_mem_gb} GB")
 
 
 def prompt_formatter(u_query, system_prompt, tokenizer):
@@ -183,21 +181,11 @@ def llm(u_query, system_prompt):
     prompt = prompt_formatter(u_query, system_prompt, g_tokenizer)
     print(f"Prompt: {prompt}\n")
 
-    inputs = g_tokenizer(
-        prompt,
-        padding=True,  # Pads all sequences to the length of the longest one
-        truncation=True,  # Optionally truncate to a max length
-        return_tensors="pt",  # Return PyTorch tensors (could also use "tf" for TensorFlow)
-        return_attention_mask=True,  # Ensures attention mask is returned
-    )
-    # Move input_ids and attention_mask to CUDA
-    input_ids = inputs.input_ids.to("cuda")
-    attention_mask = inputs.attention_mask.to("cuda")
+    inputs = g_tokenizer(prompt, return_tensors="pt").to(model.device)
     print("Start llm\n")
-    outputs = g_model.generate(input_ids, attention_mask=attention_mask, max_new_tokens=128, temperature=0.01,
-                                do_sample=True, eos_token_id=g_tokenizer.eos_token_id)
+    outputs = g_model.generate(**inputs, max_new_tokens=128, do_sample=True, temperature=0.01)
+    output_text = g_tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
     print("End llm\n")
-    output_text = g_tokenizer.decode(outputs[0][input_ids.shape[-1]:], skip_special_tokens=True)
     print(output_text)  # Expected output: <tool_call>{{"tool_name": "<function-name>", "tool_arguments": <args-dict>}}</tool_call>
 
     function = extract_function_from_xml(output_text)
@@ -208,12 +196,11 @@ def llm(u_query, system_prompt):
 
 
 def submit_query(user_input: str):
-    global g_user_query, g_system_prompt
-    g_user_query = user_input
-    print("User Query:", g_user_query)  # Stored user input passed from web UI
+    global g_system_prompt
+    print("User Query:", user_input)  # Stored user input passed from web UI
 
     print(f"Call llm ... \n")
-    function = llm(g_user_query, g_system_prompt)
+    function = llm(user_input, g_system_prompt)
 
     # Prepare the exec string
     exec_locals = {}    # local dict to store any local variables that exec() modifies
@@ -327,21 +314,23 @@ Sotong = {sotong}
 
 
 def extract_function_from_xml(xml_string):
-    # Extract the content inside the <tool_call> tag
-    start_tag = "<tool_call>"
-    end_tag = "</tool_call>"
-    content = xml_string[len(start_tag):-len(end_tag)]
+    # Extract JSON from the tool_call string
+    json_match = re.search(r'{.*}', xml_string)
+    if json_match:
+        json_str = json_match.group(0)
 
-    # Convert the string content to a dictionary
-    tool_call_data = ast.literal_eval(content)
+        # Parse the JSON string
+        data = json.loads(json_str)
 
-    # Extract the function name and arguments
-    tool_name = tool_call_data['tool_name']
-    tool_arguments = tool_call_data['tool_arguments']
+        # Extract function name and parameters
+        tool_name = data.get('tool_name')
+        tool_arguments = data.get('tool_arguments', {})
 
-    # Return the function name and arguments as a string
-    function_call_str = f"{tool_name}({', '.join([f'{k}={repr(v)}' for k, v in tool_arguments.items()])})"
-    return function_call_str
+        # Create function call string with actual parameter values
+        arguments = ', '.join([f"{key}='{value}'" for key, value in tool_arguments.items()])
+        return f"{tool_name}({arguments})" if arguments else f"{tool_name}()"
+
+    return None
 # end of function
 
 
@@ -367,27 +356,13 @@ For each function call return a json object with function name and arguments wit
 if __name__ == "__main__":
     import uvicorn
 
-    global g_user_query, g_tokenizer, g_system_prompt
-    global g_llm_loaded, g_model
+    global g_tokenizer, g_system_prompt
+    global g_model
 
-    model_name = "akjindal53244/Llama-3.1-Storm-8B"  # FP8 model: "akjindal53244/Llama-3.1-Storm-8B-FP8-Dynamic"
-
-    # from huggingface_hub import login
-    # login to huggingface to get the models. Can comment this out after models are downloaded
-    # login(token="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")
-    # print(f"Login successful")
-
-    g_user_query = ""
-
-    g_tokenizer = AutoTokenizer.from_pretrained(model_name)
-    g_model = LlamaForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.bfloat16,
-        device_map='auto',
-        load_in_8bit=False,
-        load_in_4bit=False,
-        use_flash_attention_2=False
-    )
+    model_id = "meta-llama/Llama-3.2-3B-Instruct"
+    OV_model_id = "hf_optimum_auto-Llama-3.2-3B-Instruct"
+    g_tokenizer = AutoTokenizer.from_pretrained(model_id)
+    g_model = OVModelForCausalLM.from_pretrained(OV_model_id)
 
     tools_list = [
         {

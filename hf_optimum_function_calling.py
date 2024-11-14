@@ -227,6 +227,7 @@ messages = [
 
 prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
 
+print(prompt)
 inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 print("Start llm\n")
 outputs = model.generate(**inputs, max_new_tokens=128, do_sample=True, temperature=0.01, eos_token_id=tokenizer.eos_token_id)
