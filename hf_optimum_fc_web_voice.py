@@ -23,7 +23,7 @@ import threading
 # Here we initialize the FastAPI application and set up Jinja2 for template rendering
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="/users/chiauho.ong/LLM/hf_optimum/static"), name="static")
+app.mount("/static", StaticFiles(directory="/users/chiauho.ong/LLM/hf_optimum_function_calling/static"), name="static")
 
 #################### ALL THE AUDIO STUFF ######################################################################################
 # This section of the code deals with audio / speech input.The users will use a mic to speak instead of typing.
